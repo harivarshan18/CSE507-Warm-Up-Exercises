@@ -1,4 +1,4 @@
-### miniJSRT Warm-Up (Tasks 0–3) — PyTorch + ResNet-18
+## miniJSRT Warm-Up (Tasks 0–3) — PyTorch + ResNet-18
 
 Chest X-ray warm-ups on the miniJSRT teaching datasets:
 Task 0 (I/O for PNG/JPG/DICOM), Task 1 (Orientation), Task 2 (Gender), Task 3 (Age regression).
