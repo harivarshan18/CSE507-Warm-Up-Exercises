@@ -1,200 +1,151 @@
-# miniJSRT Warm-Up (Tasks 0–3), Otsu Thresholding, and Active Contours (Snakes) — PyTorch + ResNet-18 + OpenCV + NumPy
+# miniJSRT Warm-Up Tasks (1–9) — Consolidated PyTorch + CV Pipeline
 
-This repository contains coursework experiments on chest X-rays from the miniJSRT teaching datasets, an implementation of Otsu’s thresholding method, and a classic reproduction of the **Snakes: Active Contour Models** algorithm.
+This repository contains **all nine warm-up exercises for CSE 507** implemented in two Jupyter notebooks:
 
-⚠️ These datasets and code are for coursework/demo only — not for clinical use.
+- **`CSE507_WarmUp1-7.ipynb`** — Tasks 1–7 (I/O, orientation, gender, age regression, binary segmentation, multi-class segmentation, organ localization)  
+- **`CSE507_WarmUp8_9.ipynb`** — Tasks 8–9 (unsupervised anomaly detection & image clustering)
 
----
+A full written summary of the methods and results appears in the accompanying **Final Warm-Up Report** (PDF).
 
-## What’s Inside
-
-- **Task 0 – I/O:**  
-  Read/write PNG, JPG, and DICOM; robust percentile windowing; safe format conversion.
-
-- **Task 1 – Orientation:**  
-  Up/Down/Left/Right classifier with ResNet-18 (ImageNet init, frozen backbone).
-
-- **Task 2 – Gender:**  
-  Female/Male classifier (same pipeline as Task 1).
-
-- **Task 3 – Age Regression:**  
-  Single-output regression with ResNet-18 head; MAE/RMSE evaluation.
-
-- **Otsu Thresholding:**  
-  Implementation of Otsu’s method (manual and OpenCV) on JSRT chest radiographs.  
-  Includes Gaussian preprocessing, histogram analysis (raw, normalized, and post-threshold), and visualization of binary segmentation masks.
-
-- **Snakes (Active Contours):**  
-  Implementation of Kass–Witkin–Terzopoulos snakes (1988) with:  
-  - Semi-implicit solver for contour evolution  
-  - Image energies (line, edge, termination)  
-  - Bilinear force interpolation and arc-length resampling  
-  - Multi-scale schedule with Gaussian pyramids  
-  - Edge snapping and radial windowing for stable convergence  
-  - Example demo on the `scikit-image` coins dataset (`example.py`)  
-
-Reusable helpers: dataset downloader, ImageNet preprocessing for grayscale, tiny training loops.
+⚠️ *All datasets (miniJSRT and course-provided splits) are for educational use only and not intended for clinical workflows.*
 
 ---
 
-## Tasks & Commands (What Each Cell Does)
+## 📂 Notebook Overview
 
-### Task 0 — Read/Write CXR (PNG/JPG/DICOM)
-- Downloads: `Practice_PNGandJPG.zip`, `Practice_DICOM.zip`.  
-- Functions:  
-  - `png_to_jpg`, `jpg_to_png` (PIL)  
-  - `dcm_to_png` (pydicom → percentile windowing → PNG)  
-- Saves non-destructive outputs under:  
-  - `Practice_PNGandJPG/_converted/`  
-  - `Practice_DICOM/_png/`
+### **`CSE507_WarmUp1-7.ipynb`**
+This notebook implements the complete supervised pipeline described in the final report:
 
-### Task 1 — Orientation (Up/Down/Left/Right)
-- Dataset: `Directions01/train|test`  
-- Pipeline: grayscale → 3-channel → ImageNet preprocessing → ResNet-18 head (backbone frozen)  
-- Optimizer: AdamW; Loss: CrossEntropy  
-- Outputs: train/val accuracy per epoch, final test accuracy
+#### **Task 1 — Robust Image I/O (PNG/JPG/DICOM)**
+- Read/write PNG/JPG via PIL  
+- DICOM loading via pydicom  
+- Percentile windowing (0.5–99.5%) for 16-bit CXRs  
+- Safe conversion to 8-bit PNG
 
-### Task 2 — Gender (Female/Male)
-- Dataset: `Gender01/train|test`  
-- Same pipeline as Task 1; binary classification head
+#### **Task 2 — Orientation Classification (Up/Down/Left/Right)**
+- ResNet-18 backbone (ImageNet init, frozen)
+- Linear classification head
+- AdamW training, cross-entropy loss  
+- Achieves extremely high accuracy on the Directions01 split
 
-### Task 3 — Age Regression
-- Dataset: `XPAge01_RGB + CSV`  
-- Robust CSV/filename discovery with nested path handling  
-- Model: ResNet-18 with 1-output head (MSELoss)  
-- Metrics: MAE, RMSE on test split  
-- Optional fine-tune: unfreeze backbone at low LR
+#### **Task 3 — Gender Classification**
+- Same backbone as Task 2  
+- Experiments with unweighted and class-weighted CE  
+- Includes per-class F1 analysis
 
-### Otsu Thresholding on JSRT Radiographs
-- Dataset: JSRT practice set (e.g., `JPCLN002.png`)  
-- Preprocessing: Gaussian blur ($5\times5$ kernel)  
-- Manual Otsu: between-class variance maximization (NumPy)  
-- OpenCV Otsu: `cv2.threshold(..., THRESH_OTSU)`  
-- Outputs:  
-  - Histograms (raw counts, normalized probabilities, binary 0/255)  
-  - Thresholded masks for original and blurred images  
-  - Montages of all results saved under `jsrt_otsu_outputs/`
+#### **Task 4 — Age Regression**
+- ResNet-18 regression head (Smooth L1)  
+- Z-scored targets, two-stage training (head-only → light fine-tuning)  
+- MAE ≈ 6.9 years with TTA improvements  
+- Includes scatter plots and error histograms
 
-### Snakes (Active Contours)
-- Files: `snakes.py`, `example.py`  
-- Based on Kass et al. (1988), with refinements inspired by blog/code resources (see References).  
-- Workflow in `example.py`:  
-  - Load the `scikit-image` coins dataset  
-  - Initialize snake as a circle around a chosen coin  
-  - Apply multi-scale evolution with decreasing $\sigma$  
-  - Plot panels: original image, edge strength map, overlay of initial vs. final contour  
-- Output: `snake_multiscale.png` showing convergence of snake to coin boundary.
+#### **Task 5 — Binary Segmentation (Organs vs. Background)**
+- FCN32s-style head over a frozen ResNet-18
+- Weighted CE + Dice loss  
+- Morphological post-processing (cleanup & hole filling)
 
----
+#### **Task 6 — Multi-class Segmentation (Lungs + Heart)**
+- DeepLabV3-ResNet101  
+- Combined loss: Focal CE + Soft Dice + Lovasz-Softmax  
+- TTA inference (scales + flips)  
+- Semantic cleaning (remove speckles, enforce connected lungs)  
+- Achieves strong IoU (~0.91 on example validation prints)
 
-## Expected Results
-
-- **Task 0:** Visual inspection only (contrast looks reasonable, no clipping/banding).  
-- **Task 1:** High test accuracy in a few epochs (global orientation cues).  
-- **Task 2:** Reasonable accuracy but limited by dataset size.  
-- **Task 3:** MAE/RMSE vary; frozen backbone is a good start, brief fine-tuning improves results.  
-- **Otsu Thresholding:** Threshold $\sim 110$ for CXR images, segmenting dark lung fields from brighter bone/mediastinum. Histograms show complex multimodal distributions (not strictly bimodal), yet Otsu selects a useful partition.  
-- **Snakes:** Snakes successfully lock onto coin boundaries; multi-scale evolution improves stability and edge alignment.
+#### **Task 7 — Three-Organ Localization (Boxes)**
+- Derived from cleaned segmentation masks  
+- Steps include:  
+  - Largest-component lung filtering  
+  - k-means (k=2) to separate fused lungs  
+  - Geometric heart constraints (width 20–45% of thorax)  
+  - Always returns 3 boxes (left lung, right lung, heart)
 
 ---
 
-## License & Data
+### **`CSE507_WarmUp8_9.ipynb`**
+This notebook covers the two unsupervised tasks:
 
-- Code: MIT  
-- Data: miniJSRT practice sets and derived splits belong to their respective owners and are intended for educational use. Check dataset terms before redistribution.
+#### **Task 8 — Anomaly Detection via Denoising Autoencoder**
+- Lightweight convolutional autoencoder  
+- Trained on *normal* images (flips are anomalies)  
+- Loss: 0.7 · (1 – SSIM) + 0.3 · L1  
+- Outputs  
+  - Reconstruction error maps  
+  - AUROC/AP  
+  - Top anomaly visualizations
+
+#### **Task 9 — Image Clustering (Directions01)**
+- Frozen ResNet-18 feature extraction  
+- PCA whitening  
+- k-means clustering (k = 5 for {up, down, left, right, flip})  
+- Metrics: NMI, ARI, Purity, Silhouette  
+- Nearly perfect reproduction of ground-truth clusters (NMI ≈ 0.98)
 
 ---
 
-## Acknowledgments
+## 📑 Report
 
-- miniJSRT practice materials and task splits  
-- PyTorch & torchvision for model and preprocessing utilities  
-- OpenCV and NumPy for Otsu thresholding implementation  
-- Kass, Witkin, and Terzopoulos for the original Snakes model [1]  
-- Cris Larsson’s blog on simple snake implementations [2]  
-- Matthancock’s GitHub repo on snakes [3]  
+A detailed written summary of motivation, methodology, metrics, visualizations, and discussion for Tasks 1–9 is available in:
+
+**`CSE507_FinalWarmup.pdf`** :contentReference[oaicite:1]{index=1}
+
+The report includes:
+- Plots for regression performance  
+- Example segmentation masks  
+- Bounding box overlays  
+- PR curves for anomaly detection  
+- Clustering scatterplots and tables
 
 ---
 
-## References
+## 🚀 Environment & Requirements
+The notebooks rely on:
 
-[1] M. Kass, A. Witkin, D. Terzopoulos. *Snakes: Active contour models*. IJCV, 1988.  
-[2] C. Larsson. *A simple implementation of snakes*. <http://www.cb.uu.se/~cris/blog/index.php/archives/217>  
-[3] M. Hancock. *snakes/example.py*. <https://github.com/notmatthancock/snakes/blob/master/example.py>
-# README — Z-algorithm Pattern Matcher
+- Python 3.8+
+- PyTorch & torchvision
+- NumPy, SciPy, scikit-learn
+- OpenCV
+- pydicom
+- matplotlib  
+- scikit-image
 
-### Overview
-This program finds all exact occurrences of a pattern p in a text t using the Z-algorithm and reports:
-- the 1-based starting positions of every match (one per line, ascending), then
-- three tallies on separate lines:
-    - Number of comparisons: <int>
-    - Number of matches: <int>
-    - Number of mismatches: <int>
-A “comparison” is a single character == check performed while extending Z-boxes. Each comparison is counted as either a match or a mismatch.
+Install dependencies (example):
 
-### Files
-exact_pattern_matching.py — main program (Z-algorithm implementation + CLI)
+```bash
+pip install torch torchvision numpy opencv-python pydicom scikit-learn scikit-image matplotlib
+```
+---
 
-### Requirements
-- Python 3.8+ (no external packages)
-- POSIX or Windows shell
+## 📚 References
 
-### Input format
-Each input file must contain exactly two lines:
-- Line 1: the text t
-- Line 2: the pattern p
+- Chen, L.-C., Papandreou, G., Schroff, F., & Adam, H.  
+  **Rethinking Atrous Convolution for Semantic Image Segmentation.**  
+  arXiv:1706.05587, 2017.
 
-Example:
-ATATTGATGATATG...
-ATTGATGATA
+- Berman, M., Triki, A., & Blaschko, M.  
+  **The Lovász-Softmax Loss: A Tractable Surrogate for the Optimization of the Intersection-over-Union.**  
+  CVPR, 2018.
 
-### Output format
-- One line per match position (1-based indices into t)
-- Then the three tallies, each on its own line
+- miniJSRT Teaching Dataset — Educational subset of JSRT chest radiographs.
 
-Example:
-3
-166
-538
-688
-1111
-Number of comparisons: 1879
-Number of matches: 522
-Number of mismatches: 1357
+- PyTorch & Torchvision Documentation  
+  https://pytorch.org
 
-### How to run
-Print to stdout
-python exact_pattern_matching.py <input_file>
+- scikit-image Documentation  
+  https://scikit-image.org
 
-Example: python zmatch.py samples/sample_0
+- scikit-learn Documentation  
+  https://scikit-learn.org
 
-Redirect to a file if needed:
-python exact_pattern_matching.py samples/sample_0 > sol_0
 
-Write directly to an output file
-python exact_pattern_matching.py <input_file> <output_file>
+---
 
-Example:
-python exact_pattern_matching.py samples/sample_0 sol_0
+## 🙏 Acknowledgments
 
-The program does not create any directories, therefore the path to <output_file> must exist.
+- **Arizona State University — CSE 507** for providing the warm-up task framework and datasets.  
+- **miniJSRT creators** for the educational chest X-ray subsets used throughout the exercises.  
+- **PyTorch**, **Torchvision**, **OpenCV**, **NumPy**, **scikit-image**, and **scikit-learn** for the core tooling that enabled model training and visualization.  
+- **DeepLabV3** and **Lovasz-Softmax** research authors for foundational segmentation methods used in Tasks 5–7.  
+- All open-source contributors whose libraries and tools made these experiments possible.
 
-### Batch over many samples
-From a shell inside the directory that contains samples/:
+---
 
-for f in samples/sample_*; do
-  base=$(basename "$f")
-  out="sol_${base#sample_}"
-  python zmatch.py "$f" "$out"
-done
-
-### Notes on correctness
-- Positions are 1-based: first character of t is position 1; last is position |t|.
-- The algorithm uses the standard pattern + '$' + text construction (the sentinel $ is not in the DNA alphabet), so there are no separator collisions.
-- We skip unnecessary extensions when a Z value is fully determined inside the current [L, R] window; this keeps comparison counts tight.
-
-### Implementation details
-- Z-array construction maintains [L, R]. When i ≤ R:
-    - If Z[i-L] < R-i+1, we reuse Z[i] = Z[i-L] and do not extend (no new comparisons).
-    - Otherwise, we set Z[i] = R-i+1 and extend from R+1.
-- Every time we compare t[a] with t[i+a], we increment the global comparison counter and classify it as a match or mismatch.
